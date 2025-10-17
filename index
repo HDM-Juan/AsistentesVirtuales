@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Asistentes - Hospital del Móvil</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        body { font-family: 'Roboto', sans-serif; background-color: #f0f2f5; color: #333; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .editor-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #ddd; padding-bottom: 20px; }
+        .editor-header h1 { color: #B22222; font-size: 2em; }
+        .editor-header p { color: #666; font-size: 1em; }
+        
+        .section-config { margin-bottom: 25px; padding: 20px; border: 1px dashed #ddd; border-radius: 8px; background: #f8f9fa; }
+        .section-config h3 { margin-top: 0; color: #B22222; border-bottom: 1px solid #B22222; padding-bottom: 5px; }
+        .section-config label { display: block; margin-top: 15px; font-weight: 500; }
+        .section-config input, .section-config textarea, .section-config select { width: 100%; padding: 8px; margin-top: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        .section-config input[type="checkbox"] { width: auto; margin-right: 10px; }
+        .section-config button { margin-top: 10px; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; }
+        
+        .flow-container { display: flex; flex-wrap: wrap; gap: 20px; }
+        .flow-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; width: 300px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .flow-card.active { border-color: #B22222; }
+        .flow-card h4 { margin-top: 0; color: #8B1A1A; cursor: pointer; }
+        .flow-card .content { margin-top: 15px; display: none; }
+        .flow-card.active .content { display: block; }
+        .flow-card .card-input { width: 100%; padding: 8px; margin-bottom: 10px; }
+        
+        .generate-btn { display: block; width: 100%; padding: 15px; font-size: 1.2em; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 20px; }
+        .generate-btn:hover { background: #218838; }
+        
+        .code-output { margin-top: 20px; background: #2d3748; color: #e2e8f0; padding: 15px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 14px; white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="editor-header">
+            <h1>🛠️ Creador de Asistentes para Hospital del Móvil</h1>
+            <p>Genera nuevos asistentes virtuales sin escribir código.</p>
+        </div>
+
+        <div class="section-config">
+            <h3>🎨 Diseño y Encabezado</h3>
+            <label>Título del Asistente:</label>
+            <input type="text" id="assistantTitle" value="Asistente de Pre-Recepción">
+            <label>Subtítulo:</label>
+            <input type="text" id="assistantSubtitle" value="Hospital del Móvil">
+            <label>URL del Logo (100x100 px):</label>
+            <input type="text" id="logoUrl" value="https://i.imgur.com/cqRWu7U.png">
+        </div>
+
+        <div class="section-config">
+            <h3>🔗 Integración con Google Sheets</h3>
+            <label>URL de Google Apps Script:</label>
+            <input type="text" id="scriptUrl" placeholder="Pega aquí la URL de tu aplicación web">
+            <label>ID de Google Drive para capturas:</label>
+            <input type="text" id="driveFolderId" placeholder="ID de la carpeta donde se guardarán las fotos">
+            <label>Configuración de pestañas y columnas (formato JSON):</label>
+            <textarea id="sheetsConfig" rows="5" placeholder='{"pestaña1": ["columna1", "columna2"], "pestaña2": ["columnaA", "columnaB"]}'></textarea>
+        </div>
+
+        <div class="section-config">
+            <h3>⚙️ Funcionalidades del Asistente</h3>
+            <label><input type="checkbox" id="featureQR" checked> Generar Código QR</label>
+            <label><input type="checkbox" id="featureVoice" checked> Dictado por voz</label>
+            <label><input type="checkbox" id="featureShare" checked> Compartir</label>
+            <label><input type="checkbox" id="featureUpload" checked> Subir fotos/evidencias</label>
+            <label>Iconos de comunicación:</label>
+            <div>
+                <label><input type="checkbox" id="iconWhatsapp" checked> WhatsApp</label>
+                <label><input type="checkbox" id="iconFacebook" checked> Facebook</label>
+                <label><input type="checkbox" id="iconPhone" checked> Teléfono</label>
+                <label><input type="checkbox" id="iconMaps" checked> Google Maps</label>
+            </div>
+        </div>
+
+        <h3>💬 Flujo de Conversación</h3>
+        <div class="flow-container" id="flowContainer">
+            <!-- Bloques de conversación se generarán aquí -->
+        </div>
+        <button onclick="addBlock()">+ Añadir nuevo bloque</button>
+
+        <button class="generate-btn" onclick="generateAssistant()">Generar Código del Asistente</button>
+
+        <div id="result" style="display: none;">
+            <h3>Código HTML Generado</h3>
+            <textarea id="assistantCode" rows="20" style="width: 100%;"></textarea>
+        </div>
+    </div>
+
+    <script>
+        let conversationFlow = {
+            "start": { "text": ["Hola, soy el asistente.", "¿Qué necesitas?"], "options": [{ "text": "Opción 1", "next": "block1" }, { "text": "Opción 2", "next": "block2" }] },
+            "block1": { "text": ["Elegiste la opción 1."], "input": { "placeholder": "Escribe algo", "next": "end" }, "save": { "campo": "respuesta1" } },
+            "block2": { "text": ["Elegiste la opción 2."], "options": [{ "text": "OK", "next": "end" }] },
+            "end": { "text": ["¡Gracias por tu tiempo!"], "end": true }
+        };
+
+        function renderEditor() {
+            const container = document.getElementById('flowContainer');
+            container.innerHTML = '';
+            for (const key in conversationFlow) {
+                const block = document.createElement('div');
+                block.className = 'flow-card';
+                block.setAttribute('data-key', key);
+                block.innerHTML = `
+                    <h4 onclick="toggleBlock('${key}')">${key}</h4>
+                    <div class="content">
+                        <label>Mensajes del asistente (uno por línea):</label>
+                        <textarea data-field="text">${conversationFlow[key].text.join('\n')}</textarea>
+                        ${conversationFlow[key].options ? `
+                            <label>Opciones:</label>
+                            <div class="options-list">
+                                ${conversationFlow[key].options.map((opt, i) => `<div><input type="text" value="${opt.text}" data-field="options" data-index="${i}" data-subfield="text"><input type="text" value="${opt.next}" data-field="options" data-index="${i}" data-subfield="next"></div>`).join('')}
+                            </div>
+                        ` : ''}
+                        ${conversationFlow[key].input ? `
+                            <label>Input de usuario:</label>
+                            <input type="text" value="${conversationFlow[key].input.placeholder}" data-field="input" data-subfield="placeholder">
+                            <label>Guardar en columna:</label>
+                            <input type="text" value="${conversationFlow[key].save.campo}" data-field="save" data-subfield="campo">
+                        ` : ''}
+                    </div>
+                `;
+                container.appendChild(block);
+            }
+        }
+        function toggleBlock(key) {
+            const block = document.querySelector(`[data-key="${key}"]`);
+            block.classList.toggle('active');
+        }
+        function addBlock() {
+            const newKey = `block${Object.keys(conversationFlow).length}`;
+            conversationFlow[newKey] = { "text": ["Nuevo bloque de conversación"], "options": [{ "text": "Siguiente", "next": "end" }] };
+            renderEditor();
+        }
+
+        function generateAssistant() {
+            // Este es el código del asistente final que se generará
+            const title = document.getElementById('assistantTitle').value;
+            const subtitle = document.getElementById('assistantSubtitle').value;
+            const logo = document.getElementById('logoUrl').value;
+            const scriptUrl = document.getElementById('scriptUrl').value;
+            const sheetsConfig = document.getElementById('sheetsConfig').value;
+
+            const finalCode = `
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <style> /* CSS del asistente */ </style>
+</head>
+<body>
+    <div class="main-container">
+        <header class="header">
+            <img src="${logo}" alt="Logo" class="header-logo">
+            <div class="header-text">
+                <h1>${title}</h1>
+                <p class="subtitle">${subtitle}</p>
+            </div>
+        </header>
+        <!-- Aquí va el resto del HTML con los botones e íconos -->
+        <main class="main-content">
+            <div class="chat-area" id="chatArea"></div>
+            <!-- Áreas de input y botones -->
+        </main>
+        <footer>
+            <!-- Contenido del footer -->
+        </footer>
+    </div>
+    <script>
+        const SCRIPT_URL = "${scriptUrl}";
+        const SHEETS_CONFIG = ${sheetsConfig};
+        const conversationFlow = ${JSON.stringify(conversationFlow, null, 4)};
+
+        // Resto del código del motor del asistente aquí...
+        // [Este es el código que maneja la lógica de la conversación y las acciones]
+    </script>
+</body>
+</html>
+            `;
+            document.getElementById('assistantCode').value = finalCode;
+            document.getElementById('result').style.display = 'block';
+        }
+
+        document.addEventListener('DOMContentLoaded', renderEditor);
+    </script>
+</body>
+</html>
